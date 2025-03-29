@@ -1,0 +1,193 @@
+Milestone 1: Deploy Kong Gateway on Azure Kubernetes Service (AKS) :
+
+Step 1: Create an AKS Cluster with Terraform
+
+I created :
+- Azure Resource Group
+- Azure Kubernetes Service (AKS) Cluster
+- Azure Container Registry (ACR) for images
+
+
+Step 2: Connect to AKS Cluster :
+
+After deployment, configure kubectl to connect to your AKS cluster:
+
+```bash
+
+az aks get-credentials --resource-group kong-resource-group --name kong-aks-cluster
+kubectl get nodes
+
+```
+
+Step 3: Deploy Kong Gateway on AKS :
+
+Step 3.1: Add the Kong Helm Repository:
+
+```bash
+
+helm repo add kong https://charts.konghq.com
+helm repo update
+
+```
+
+Step 3.2: Install Kong Gateway:
+
+```bash
+
+helm install kong kong/kong --namespace kong --create-namespace \
+  --set ingressController.installCRDs=true \
+  --set proxy.type=LoadBalancer
+
+```
+
+# This will install:
+ 
+- Kong Gateway
+- Custom Resource Definitions (CRDs)
+- LoadBalancer for external access
+
+
+Step 3.3: Verify Deployment :
+
+```bash 
+
+kubectl get pods -n kong
+
+kubectl get svc -n kong kong-kong-proxy
+
+```
+
+
+
+Step 4: Configure a Test Service :
+
+Step 4.1: Deploy Echo Service
+
+```bash
+
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-server
+  namespace: kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo-server
+  template:
+    metadata:
+      labels:
+        app: echo-server
+    spec:
+      containers:
+        - name: echo-server
+          image: ealen/echo-server
+          ports:
+            - containerPort: 80
+EOF
+
+```
+
+
+Step 4.2: Expose Echo Service:
+
+```bash
+
+kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-service
+  namespace: kong
+spec:
+  selector:
+    app: echo-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+EOF
+```
+
+
+Step 5: Configure Kong Routing :
+
+Step 5.1: Create a Kong Ingress :
+
+```bash
+
+kubectl apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo-ingress
+  namespace: kong
+  annotations:
+    konghq.com/strip-path: "true"
+spec:
+  ingressClassName: kong
+  rules:
+    - host: kong.example.com
+      http:
+        paths:
+          - path: /echo
+            pathType: Prefix
+            backend:
+              service:
+                name: echo-service
+                port:
+                  number: 80
+EOF
+```
+
+Step 6: Test the Setup :
+
+- Find the external IP of Kong's proxy service:
+
+```bash 
+
+kubectl get svc -n kong kong-kong-proxy
+
+```
+
+##ENDED
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
