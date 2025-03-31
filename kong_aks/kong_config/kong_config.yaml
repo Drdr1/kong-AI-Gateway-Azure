@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: azure-openai
+  namespace: kong
+spec:
+  type: ExternalName
+  externalName: eastus.api.cognitive.microsoft.com  # Updated to working endpoint
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: openai-routing
+  namespace: kong
+  annotations:
+    konghq.com/strip-path: "true"
+spec:
+  ingressClassName: kong
+  rules:
+  - http:
+      paths:
+      - path: /openai
+        pathType: Prefix
+        backend:
+          service:
+            name: azure-openai
+            port:
+              number: 443
+---
+# Rest of the plugins (jwt-auth, openai-consumer, etc.) remain unchanged
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: jwt-auth
+  namespace: kong
+plugin: jwt
+config:
+  key_claim_name: "iss"
+  secret_is_base64: false
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: openai-consumer
+  namespace: kong
+username: openai-user
+credentials:
+  - jwt-auth
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: rate-limiting
+  namespace: kong
+plugin: rate-limiting
+config:
+  minute: 100
+  policy: local
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: proxy-cache
+  namespace: kong
+plugin: proxy-cache
+config:
+  cache_ttl: 300
+  strategy: memory
+---
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: prometheus
+  namespace: kong
+plugin: prometheus
