@@ -5,7 +5,7 @@ metadata:
   namespace: kong
 spec:
   type: ExternalName
-  externalName: eastus.api.cognitive.microsoft.com  # Updated to working endpoint
+  externalName: eastus.api.cognitive.microsoft.com  
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
